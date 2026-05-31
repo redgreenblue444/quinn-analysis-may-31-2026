@@ -258,16 +258,16 @@ window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$']
     <thead><tr><th>Symbol</th><th>Meaning</th><th>Definition / source</th></tr></thead>
     <tbody>
       <tr><td>L</td><td>Champion level</td><td>1–18</td></tr>
-      <tr><td>BaseAD(L)</td><td>Base attack damage</td><td>59 + 3.702·(L−1)</td></tr>
+      <tr><td>BaseAD(L)</td><td>Base attack damage</td><td>59 + 3.2·(L−1)</td></tr>
       <tr><td>A</td><td>Bonus AD (items)</td><td>Doran's = 10; Long Sword = 10 @ 35g</td></tr>
-      <tr><td>H(L)</td><td>Harrier proc damage</td><td>16 + 6.880·(L−1) — <em>on-hit, never crits</em></td></tr>
+      <tr><td>H(L)</td><td>Harrier proc damage</td><td>15 + 6.903·(L−1) — <em>on-hit, never crits</em></td></tr>
       <tr><td>s</td><td>Bonus attack speed</td><td>fractional; Dagger = 10% @ 25g</td></tr>
-      <tr><td>N(s)</td><td>Autos in 3s</td><td>⌊3 · 0.668 · (1+s)⌋ + 1</td></tr>
+      <tr><td>N(s)</td><td>Autos in 3s</td><td>4 + max(0, ⌊3 · 0.668 · (1+s)⌋ + 1 − 3)</td></tr>
       <tr><td>c</td><td>Crit chance</td><td>0–1; Cloak = 15% @ 40g/%≈40</td></tr>
       <tr><td>g</td><td>Bonus crit damage</td><td>base crit = +100% (wiki: 200% total)</td></tr>
       <tr><td>M(c,g)</td><td>Expected crit multiplier</td><td>1 + c·(1.00 + g)</td></tr>
       <tr><td>R</td><td>Target base armor</td><td>—</td></tr>
-      <tr><td>ρ</td><td>% armor reduction</td><td>applied 1st (Quinn E, Black Cleaver)</td></tr>
+      <tr><td>ρ</td><td>% armor reduction</td><td>applied 1st (Black Cleaver stacks, etc.)</td></tr>
       <tr><td>π</td><td>% armor penetration</td><td>applied 3rd (Last Whisper line)</td></tr>
       <tr><td>Λ</td><td>Lethality (flat pen)</td><td>applied last; Serrated Dirk = 10 @ 30g</td></tr>
       <tr><td>R<sub>eff</sub></td><td>Effective armor</td><td>max(0, R(1−ρ)(1−π) − Λ)</td></tr>
@@ -290,7 +290,7 @@ window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$']
 
   <div class="eq">
     <div class="eq-label">Post-mitigation burst damage</div>
-    $$ D = \Big[\, \underbrace{N(s)\big[\,BaseAD(L)+A\,\big]\,M(c,g)}_{\text{autos — critable}} \;+\; \underbrace{1.05\,A + 140}_{Q+E} \;+\; \underbrace{2\big[\,H(L)+0.40A\,\big]}_{\text{Harrier — on-hit}} \,\Big]\cdot \frac{100}{100+R_{\text{eff}}} $$
+    $$ D = \Big[\, \underbrace{N(s)\big[\,BaseAD(L)+A\,\big]\,M(c,g)}_{\text{autos — critable}} \;+\; \underbrace{Q(L)+E(L)}_{\text{abilities}} \;+\; \underbrace{2\big[\,H(L)+0.40A\,\big]}_{\text{Harrier — on-hit}} \,\Big]\cdot \frac{100}{100+R_{\text{eff}}} $$
   </div>
 
   <p>The bracketed quantity is raw damage; the trailing factor is the wiki's armor mitigation. Three structural facts fall out immediately:</p>
@@ -305,10 +305,10 @@ window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$']
     <p>The multiplier <code>M(c,g)</code> attaches to the auto block alone. Crit and attack speed therefore <em>compound</em> (more autos × bigger crits), while crit does nothing for the ability/proc majority of an early combo.</p>
   </div>
 
-  <p>Collapsing the AD-dependent terms gives the form used for gold-efficiency work, where the coefficient on bonus AD is <code>1.85 + N(s)·M</code> — the 1.85 being Q (0.85) + E (0.20) + two Harrier procs (0.80):</p>
+  <p>Collapsing the AD-dependent terms gives the form used for gold-efficiency work. Ability ranks follow a Q-max-first allocation; the bonus-AD coefficient is <code>r(L) + 1.00 + N(s)·M</code>, where <code>r(L)</code> is Q's ratio and the <code>+1.00</code> is E (0.20) plus two Harrier procs (0.80):</p>
   <div class="eq">
     <div class="eq-label">AD-collapsed form (pre-mitigation)</div>
-    $$ D_{\text{raw}} = \big(140 + N\cdot BaseAD(L) + 2H(L)\big) \;+\; \big(1.85 + N\cdot M\big)\,A $$
+    $$ D_{\text{raw}} = \big(Q_0(L) + E_0(L) + N\cdot BaseAD(L) + 2H(L)\big) \;+\; \big(r(L) + 1.00 + N\cdot M\big)\,A $$
   </div>
 </div>
 </section>
@@ -319,7 +319,7 @@ window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$']
   <div class="sec-label">04 — Attack speed dynamics</div>
   <h2>The staircase: why attack speed is lumpy</h2>
   <p class="lead">In a fixed-window combo, attack speed adds <em>nothing</em> until it crosses a whole-auto threshold — then it jumps by one entire auto. The damage-vs-AS relationship is a step function, not a smooth curve.</p>
-  <p>Autos in the window are <code>N(s) = ⌊3 · 0.668 · (1+s)⌋ + 1</code>. At level-appropriate base attack speed (0.668), you land 3 autos and don't reach a 4th until total AS hits 1.0 — that is <strong>+50% bonus AS</strong> for a single extra swing. Between thresholds, every point of AS is wasted on burst.</p>
+  <p>The canonical rotation always delivers <strong>4 autos</strong> (animation cancels + Vault reset). Purchased AS only adds beyond that: <code>N(s) = 4 + max(0, ⌊3 · 0.668 · (1+s)⌋ + 1 − 3)</code>. A <strong>5th auto</strong> requires ~<strong>+50% bonus AS</strong>; between thresholds every point of AS is wasted on burst.</p>
 
   <div class="chart-card">
     <div class="title">Burst damage as a function of bonus attack speed</div>
@@ -356,9 +356,9 @@ window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$']
   <p>Setting crit's marginal gold value equal to AD's yields the crossover condition:</p>
   <div class="eq">
     <div class="eq-label">Crit overtakes AD when</div>
-    $$ \frac{N\,(BaseAD(L)+A)\,(1+g)}{40} \;>\; \frac{1.85 + N}{35} $$
+    $$ \frac{N\,(BaseAD(L)+A)\,(1+g)}{4000} \;>\; \frac{r(L) + 1.00 + N\cdot M}{35} $$
   </div>
-  <p>At <strong>L3, no crit-damage item</strong>: AD wins ≈2.4× (0.139 vs 0.057 dmg/gold). At <strong>L16 with an IE-tier item</strong> (g = 0.40, N = 4, A = 60): crit pulls ahead (≈0.244 vs 0.167). The phase transition is real and itemization-gated.</p>
+  <p>At <strong>L3, no crit-damage item</strong> (A ≈ 10): AD wins ≈2.2× (0.167 vs 0.075 dmg/gold). At <strong>L16 with an IE-tier item</strong> (g = 0.40, N = 4, A = 60): crit pulls ahead (≈0.234 vs 0.171). The phase transition is real and itemization-gated.</p>
 
   <div class="callout insight">
     <span class="tag">Insight 04 — Crit and crit-damage are multiplicative</span>
@@ -397,12 +397,12 @@ window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$']
       <span><span class="line-swatch" style="border-color:#4b94d8"></span>30 lethality</span>
       <span><span class="line-swatch" style="border-color:#e0673c"></span>40% armor pen</span>
     </div>
-    <div class="chart-wrap" style="height:260px"><canvas id="pencross" role="img" aria-label="Two lines crossing near 100 armor showing lethality better below, percent pen better above"></canvas></div>
+    <div class="chart-wrap" style="height:260px"><canvas id="pencross" role="img" aria-label="Two lines crossing near 87 base armor showing lethality better below, percent pen better above"></canvas></div>
   </div>
 
   <div class="callout insight">
-    <span class="tag">Insight 05 — The crossover sits near R_eff ≈ 100</span>
-    <p>At 100 armor, 1 point = 1% effective HP (per the wiki), so flat and percent behave comparably. Below it, flat lethality dominates (it can drive R_eff to literal zero on squishies); above it, percent pen removes far more absolute armor. Gold prices (lethality 30g vs %pen ~42g/pt) reinforce the same break.</p>
+    <span class="tag">Insight 05 — The crossover sits near base R ≈ 87</span>
+    <p>With ρ = 14% (partial Black Cleaver), 30 flat lethality and 40% pen remove equal absolute armor at <strong>base R ≈ 87</strong> — below that, lethality wins; above it, percent pen scales. At 100 effective armor, 1 point = 1% effective HP (per the wiki). Gold prices (lethality 30g vs %pen ~42g/pt) reinforce the same break.</p>
   </div>
 </div>
 </section>
@@ -415,11 +415,11 @@ window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$']
   <p class="lead">The build question reduces to one comparison: which stat returns the most burst damage per gold spent, at the margin? Using the wiki's reference-item prices, every stat gets a price tag.</p>
 
   <table>
-    <thead><tr><th>Stat</th><th>Gold / point</th><th>Marginal Δdamage / gold (L11, N=3)</th></tr></thead>
+    <thead><tr><th>Stat</th><th>Gold / point</th><th>Marginal Δdamage / gold (L11, N=4)</th></tr></thead>
     <tbody>
-      <tr><td>Attack damage</td><td>35</td><td><strong style="color:#d9a441">0.139</strong> — always on</td></tr>
-      <tr><td>Crit chance (early, g=0)</td><td>40 / %</td><td>0.057 — auto-block only</td></tr>
-      <tr><td>Attack speed</td><td>2.5 / %</td><td>0 between risers · ~0.61 at riser</td></tr>
+      <tr><td>Attack damage</td><td>35</td><td><strong style="color:#d9a441">0.171</strong> — always on</td></tr>
+      <tr><td>Crit chance (early, g=0)</td><td>40 / %</td><td>0.085 — auto-block only</td></tr>
+      <tr><td>Attack speed</td><td>2.5 / %</td><td>0 between risers · ~0.68 at riser</td></tr>
       <tr><td>Lethality</td><td>30</td><td>scales ∝ raw combo, peaks on squishies</td></tr>
       <tr><td>% armor pen</td><td>~42 / %</td><td>scales ∝ raw combo, peaks on tanks</td></tr>
     </tbody>
@@ -448,7 +448,7 @@ window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$']
 
   <div class="callout">
     <span class="tag">Optimal policy</span>
-    <p>Buy <strong>AD/lethality continuously</strong> — both deliver guaranteed value on every cast because Quinn's combo is ability- and on-hit-heavy. Treat <strong>attack speed as a lumpy breakpoint</strong> (only at risers, and her W steroid usually pays it). Pivot to <strong>crit only after</strong> an IE-tier crit-damage item makes the auto block large enough to justify it. Switch lethality→%pen as the enemy frontline's R_eff climbs past ~100.</p>
+    <p>Buy <strong>AD/lethality continuously</strong> — both deliver guaranteed value on every cast because Quinn's combo is ability- and on-hit-heavy. Treat <strong>attack speed as a lumpy breakpoint</strong> (only at risers, and her W steroid usually pays it). Pivot to <strong>crit only after</strong> an IE-tier crit-damage item makes the auto block large enough to justify it. Switch lethality→%pen as enemy base armor climbs past ~87 (with partial shred).</p>
   </div>
 </div>
 </section>
@@ -462,11 +462,11 @@ window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$']
 
   <div class="eq">
     <div class="eq-label">Electrocute — flat additive (proc damage, no crit)</div>
-    $$ \Delta D_{\text{Elec}} = \big(E_0(L) + 0.10A\big)\cdot\frac{100}{100+R_{\text{eff}}}, \qquad E_0(L)=70+11.18(L-1) $$
+    $$ \Delta D_{\text{Elec}} = \big(E_0(L) + 0.10A\big)\cdot\frac{100}{100+R_{\text{eff}}}, \qquad E_0(L)=70+11.176(L-1) $$
   </div>
   <div class="eq">
     <div class="eq-label">Press the Attack — burst + amp on post-trigger combo</div>
-    $$ \Delta D_{\text{PtA}} = \Big(P_0(L) + (\alpha-1)\cdot D_{\text{post-trigger}}\Big)\cdot\frac{100}{100+R_{\text{eff}}}, \quad P_0(L)=40+8.24(L-1),\ \alpha\in[1.08,1.12] $$
+    $$ \Delta D_{\text{PtA}} = \Big(P_0(L) + (\alpha-1)\cdot D_{\text{post-trigger}}\Big)\cdot\frac{100}{100+R_{\text{eff}}}, \quad P_0(L)=40+8.235(L-1),\ \alpha\in[1.08,1.12] $$
   </div>
 
   <div class="chart-card">
@@ -476,7 +476,7 @@ window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$']
       <span><span class="line-swatch" style="border-color:#d9a441"></span>Electrocute</span>
       <span><span class="line-swatch" style="border-color:#e0673c;border-top-style:dashed"></span>Press the Attack</span>
     </div>
-    <div class="chart-wrap" style="height:280px"><canvas id="runes" role="img" aria-label="Two lines comparing added damage from Electrocute and Press the Attack across levels"></canvas></div>
+    <div class="chart-wrap" style="height:280px"><canvas id="runesChart" role="img" aria-label="Two lines comparing added damage from Electrocute and Press the Attack across levels"></canvas></div>
   </div>
 
   <div class="verdict">
@@ -513,7 +513,7 @@ window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$']
       <tr><td>02</td><td>Crit multiplies only the auto block</td><td>Crit is late-game, not a splash stat</td></tr>
       <tr><td>03</td><td>AS is a step function in a fixed window</td><td>Buy AS only at risers; let W steroid pay it</td></tr>
       <tr><td>04</td><td>Crit × crit-damage compound on the auto block</td><td>IE first, then crit chance scales</td></tr>
-      <tr><td>05</td><td>Pen crossover at R_eff ≈ 100</td><td>Lethality vs squishies, %pen vs tanks</td></tr>
+      <tr><td>05</td><td>Pen crossover at base R ≈ 87</td><td>Lethality vs squishies, %pen vs tanks</td></tr>
       <tr><td>06</td><td>Flat burst beats % amp for one-shots</td><td>Electrocute for the burst build</td></tr>
     </tbody>
   </table>
@@ -523,7 +523,7 @@ window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$']
 
   <div class="callout">
     <span class="tag">Model limitations</span>
-    <p>Three honest caveats. (1) Quinn's E armor-reduction lands mid-combo, so the first auto and Q technically hit pre-debuff armor — the single global mitigation factor slightly understates early hits. (2) The <code>+1</code> immediate-auto and perfect animation-cancel assumption is best-case; lost autos shift AS breakpoints later. (3) PtA's amped fraction was approximated at 60% post-trigger; exact Harrier timing moves the keystone lines closer. None of these overturn the directional conclusions.</p>
+    <p>Three honest caveats. (1) Ability ranks are modeled Q-max-first; real skill orders and fight timing shift Q/E bases slightly. (2) The four-auto baseline assumes perfect animation cancels and Vault reset; lost autos shift AS breakpoints later. (3) PtA's amped fraction was approximated at 60% post-trigger; exact Harrier timing moves the keystone lines closer. None of these overturn the directional conclusions.</p>
   </div>
 </div>
 </section>
@@ -546,17 +546,36 @@ window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$']
 
   // ---- model functions ----
   const BASE_AS=0.668;
-  const baseAD=L=>59+3.702*(L-1);
-  const harrier=L=>16+6.880*(L-1);
-  const nauto=s=>Math.floor(3*BASE_AS*(1+s))+1;
+  const HARRIER_SLOPE=(132.35-15)/17;
+  const baseAD=L=>59+3.2*(L-1);
+  const harrier=L=>15+HARRIER_SLOPE*(L-1);
+  const nauto=s=>4+Math.max(0,Math.floor(3*BASE_AS*(1+s))+1-3);
   const elec0=L=>70+11.176*(L-1);
   const pta0=L=>40+8.235*(L-1);
   const ptaAmp=L=>L>=9?1.12:1.08;
+  const Q_BASE=[65,100,135,170,205];
+  const Q_RATIO=[0.80,0.85,0.90,0.95,1.00];
+  const E_BASE=[40,65,90,115,140];
 
-  function comboRaw(L,A,s,c,cd){
-    const N=nauto(s), M=1+c*(1.00+cd), aa=baseAD(L)+A;
-    const autos=N*aa*M, Q=100+0.85*A, E=40+0.20*A, H=harrier(L)+0.40*A;
-    return {autos, abilities:Q+E, procs:2*H, total:autos+Q+E+2*H, N, M};
+  function abilityRanks(L){
+    let pts=L;
+    if(L>=6)pts--;
+    if(L>=11)pts--;
+    if(L>=16)pts--;
+    let q=Math.min(5,pts);pts-=q;
+    pts-=Math.min(5,pts);
+    return{q:Math.max(1,q),e:Math.max(1,Math.min(5,pts||1))};
+  }
+
+  function comboRaw(L,A,s,crit,cd){
+    const N=nauto(s),M=1+crit*(1+cd),aa=baseAD(L)+A;
+    const{q,e}=abilityRanks(L);
+    const Q=Q_BASE[q-1]+Q_RATIO[q-1]*A;
+    const E=E_BASE[e-1]+0.20*A;
+    const H=harrier(L)+0.40*A;
+    const adCoeff=Q_RATIO[q-1]+1.00;
+    const autos=N*aa*M;
+    return{autos,abilities:Q+E,procs:2*H,total:autos+Q+E+2*H,N,M,adCoeff};
   }
   const mit=R=>100/(100+R);
 
@@ -626,8 +645,8 @@ window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$']
       const m=mit(R);
       const cr=comboRaw(L,A,s,c,cd);
       const N=cr.N, M=cr.M;
-      // AD marginal: d D_post/dA = (1.85 + N*M) * mit ; per gold /35
-      const adPer=((1.85+N*M)*m)/35;
+      // AD marginal: d D_post/dA = (adCoeff + N*M) * mit ; per gold /35
+      const adPer=((cr.adCoeff+N*M)*m)/35;
       // Crit chance marginal (per 1%): dD/dc = N*(baseAD+A)*(1+cd) ; *mit ; /100 for per-% ; /40 gold
       const ccPer=(N*(baseAD(L)+A)*(1+cd)*m/100)/40;
       // Lethality marginal: reduces R_eff by 1 -> dD/dR_eff = -D_raw*100/(100+R)^2 ; magnitude per gold /30
@@ -651,15 +670,15 @@ window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$']
 
   // ---- 08 runes ----
   (function(){
-    const A=45,R=60,c=0,cd=0,labels=[],eD=[],pD=[];
+    const A=45,R=60,crit=0,cd=0,labels=[],eD=[],pD=[];
     for(let L=1;L<=18;L++){
-      const cr=comboRaw(L,A,0,c,cd), m=mit(R);
+      const cr=comboRaw(L,A,0,crit,cd), m=mit(R);
       const elec=(elec0(L)+0.10*A)*m;
       const postFrac=0.60, alpha=ptaAmp(L);
       const pta=(pta0(L)+cr.total*postFrac*(alpha-1))*m;
       labels.push(L);eD.push(Math.round(elec));pD.push(Math.round(pta));
     }
-    new Chart(document.getElementById('runes'),{type:'line',
+    new Chart(document.getElementById('runesChart'),{type:'line',
       data:{labels,datasets:[
         {label:'Electrocute',data:eD,borderColor:GOLD,backgroundColor:GOLD,pointRadius:0,borderWidth:2,tension:.1},
         {label:'Press the Attack',data:pD,borderColor:CORAL,backgroundColor:CORAL,pointRadius:0,borderWidth:2,borderDash:[6,4],tension:.1}
