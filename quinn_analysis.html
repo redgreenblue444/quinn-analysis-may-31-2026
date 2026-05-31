@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quinn Burst Combat Model — A Quantitative Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=JetBrains+Mono:wght@400;500;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script id="MathJax-script" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.min.js"></script>
+<script>
+window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$']] }, svg:{fontCache:'global'} };
+</script>
+<style>
+  :root{
+    --bg:#0e1116;
+    --bg2:#151a21;
+    --bg3:#1c232c;
+    --ink:#e8eaed;
+    --ink2:#a8b0ba;
+    --ink3:#6b7480;
+    --line:#262e38;
+    --gold:#d9a441;
+    --teal:#3fb6a0;
+    --coral:#e0673c;
+    --violet:#9a8ce0;
+    --blue:#4b94d8;
+    --red:#d85656;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Newsreader',Georgia,serif;
+    font-size:18px;
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:980px;margin:0 auto;padding:0 28px;}
+
+  /* ---------- HERO ---------- */
+  header.hero{
+    border-bottom:1px solid var(--line);
+    padding:90px 0 60px;
+    position:relative;
+    overflow:hidden;
+  }
+  header.hero::before{
+    content:"";position:absolute;inset:0;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 38px, rgba(217,164,65,0.035) 38px, rgba(217,164,65,0.035) 39px),
+      repeating-linear-gradient(90deg, transparent, transparent 38px, rgba(217,164,65,0.035) 38px, rgba(217,164,65,0.035) 39px);
+    pointer-events:none;
+  }
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;letter-spacing:0.28em;text-transform:uppercase;
+    color:var(--gold);margin-bottom:22px;
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:clamp(38px,6vw,68px);
+    line-height:1.02;
+    letter-spacing:-0.02em;
+    margin-bottom:24px;
+  }
+  h1 em{font-style:italic;color:var(--gold);}
+  .dek{font-size:21px;color:var(--ink2);max-width:680px;font-weight:400;}
+  .meta-row{
+    display:flex;gap:32px;flex-wrap:wrap;margin-top:38px;
+    font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--ink3);
+    letter-spacing:0.04em;
+  }
+  .meta-row b{color:var(--ink2);font-weight:500;}
+
+  /* ---------- TOC ---------- */
+  nav.toc{
+    border-bottom:1px solid var(--line);
+    padding:22px 0;
+    position:sticky;top:0;z-index:50;
+    background:rgba(14,17,22,0.86);
+    backdrop-filter:blur(12px);
+  }
+  nav.toc ol{list-style:none;display:flex;gap:8px 26px;flex-wrap:wrap;
+    font-family:'JetBrains Mono',monospace;font-size:12.5px;}
+  nav.toc a{color:var(--ink3);text-decoration:none;transition:color .15s;}
+  nav.toc a:hover{color:var(--gold);}
+  nav.toc .num{color:var(--gold);opacity:.65;}
+
+  /* ---------- SECTIONS ---------- */
+  section{padding:64px 0;border-bottom:1px solid var(--line);}
+  .sec-label{
+    font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.2em;
+    text-transform:uppercase;color:var(--gold);margin-bottom:14px;
+  }
+  h2{font-family:'Fraunces',serif;font-weight:600;font-size:clamp(28px,4vw,40px);
+    line-height:1.08;letter-spacing:-0.015em;margin-bottom:20px;}
+  h3{font-family:'Fraunces',serif;font-weight:500;font-size:24px;margin:38px 0 14px;}
+  h4{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:0.12em;
+    text-transform:uppercase;color:var(--ink2);margin:28px 0 12px;}
+  p{margin-bottom:18px;color:var(--ink);}
+  p.lead{font-size:20px;color:var(--ink2);}
+  strong{font-weight:600;color:#fff;}
+  em{color:var(--ink);}
+  a.inline{color:var(--gold);text-decoration:none;border-bottom:1px solid rgba(217,164,65,.35);}
+
+  code{font-family:'JetBrains Mono',monospace;font-size:0.82em;
+    background:var(--bg3);padding:1px 6px;border-radius:4px;color:var(--teal);}
+
+  /* ---------- CALLOUTS ---------- */
+  .callout{
+    border-left:3px solid var(--gold);
+    background:var(--bg2);
+    padding:20px 24px;margin:28px 0;border-radius:0 8px 8px 0;
+  }
+  .callout.insight{border-color:var(--teal);}
+  .callout.warn{border-color:var(--coral);}
+  .callout .tag{font-family:'JetBrains Mono',monospace;font-size:11px;
+    letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:8px;}
+  .callout.insight .tag{color:var(--teal);}
+  .callout.warn .tag{color:var(--coral);}
+  .callout p:last-child{margin-bottom:0;}
+  .callout p{font-size:17px;}
+
+  /* ---------- EQUATION BLOCKS ---------- */
+  .eq{
+    background:var(--bg2);border:1px solid var(--line);border-radius:10px;
+    padding:26px 28px;margin:26px 0;overflow-x:auto;
+  }
+  .eq .eq-label{font-family:'JetBrains Mono',monospace;font-size:11px;
+    letter-spacing:0.16em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px;}
+
+  /* ---------- VARIABLE TABLE ---------- */
+  table{width:100%;border-collapse:collapse;margin:22px 0;font-size:15px;}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);}
+  th{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.1em;
+    text-transform:uppercase;color:var(--ink3);font-weight:500;}
+  td{color:var(--ink2);}
+  td:first-child{font-family:'JetBrains Mono',monospace;color:var(--teal);font-size:14px;}
+  tbody tr:hover{background:var(--bg2);}
+
+  /* ---------- CHART CARDS ---------- */
+  .chart-card{
+    background:var(--bg2);border:1px solid var(--line);border-radius:12px;
+    padding:24px 26px 28px;margin:28px 0;
+  }
+  .chart-card .title{font-family:'Fraunces',serif;font-size:19px;font-weight:500;margin-bottom:4px;}
+  .chart-card .sub{font-size:14px;color:var(--ink3);margin-bottom:18px;font-family:'JetBrains Mono',monospace;}
+  .chart-wrap{position:relative;width:100%;}
+  .legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin-bottom:14px;
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink2);}
+  .legend span{display:flex;align-items:center;gap:6px;}
+  .swatch{width:11px;height:11px;border-radius:2px;display:inline-block;}
+  .line-swatch{width:16px;height:0;border-top-width:2px;border-top-style:solid;display:inline-block;}
+
+  /* ---------- METRIC GRID ---------- */
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:26px 0;}
+  .metric{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .metric .k{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.1em;
+    text-transform:uppercase;color:var(--ink3);margin-bottom:8px;}
+  .metric .v{font-family:'Fraunces',serif;font-size:30px;font-weight:600;line-height:1;}
+  .metric .v.gold{color:var(--gold);}
+  .metric .v.teal{color:var(--teal);}
+  .metric .v.coral{color:var(--coral);}
+  .metric .n{font-size:13px;color:var(--ink3);margin-top:6px;}
+
+  /* ---------- INTERACTIVE CONTROL ---------- */
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:6px 28px;margin:18px 0 8px;}
+  .ctl{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .ctl label{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink2);min-width:110px;}
+  .ctl input[type=range]{flex:1;accent-color:var(--gold);height:4px;}
+  .ctl .out{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--gold);min-width:46px;text-align:right;}
+  .ctl-head{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.14em;
+    text-transform:uppercase;color:var(--ink3);margin:8px 0 6px;grid-column:span 1;}
+
+  /* ---------- VERDICT ---------- */
+  .verdict{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:30px 0;}
+  .vcard{border:1px solid var(--line);border-radius:12px;padding:24px;background:var(--bg2);}
+  .vcard.win{border-color:var(--gold);box-shadow:0 0 0 1px rgba(217,164,65,.25);}
+  .vcard h4{margin-top:0;color:var(--gold);}
+  .vcard .verdict-name{font-family:'Fraunces',serif;font-size:22px;font-weight:600;margin-bottom:6px;color:#fff;}
+
+  footer{padding:56px 0 80px;color:var(--ink3);font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.9;}
+  .footnote{font-size:14px;color:var(--ink3);font-style:italic;}
+
+  @media(max-width:720px){
+    body{font-size:16.5px;}
+    .controls,.verdict{grid-template-columns:1fr;}
+    .meta-row{gap:18px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Combat Systems Analysis · League of Legends</div>
+    <h1>The Quinn Burst Model</h1>
+    <p class="dek">A quantitative decomposition of a six-instance burst rotation — deriving damage as a closed-form function of stats, mitigation, and rune choice, then optimizing the build under gold constraints.</p>
+    <div class="meta-row">
+      <div><b>Subject</b> — Quinn, Demacia's Wings</div>
+      <div><b>Window</b> — 3.0 s rotation</div>
+      <div><b>Combo</b> — Q · AA · AA · AA · E · AA</div>
+      <div><b>Method</b> — closed-form + marginal gold-efficiency</div>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="wrap">
+    <ol>
+      <li><a href="#combo"><span class="num">01</span> The combo</a></li>
+      <li><a href="#variables"><span class="num">02</span> Variables</a></li>
+      <li><a href="#master"><span class="num">03</span> Master equation</a></li>
+      <li><a href="#time"><span class="num">04</span> Time &amp; the staircase</a></li>
+      <li><a href="#crit"><span class="num">05</span> Crit asymmetry</a></li>
+      <li><a href="#armor"><span class="num">06</span> Penetration stack</a></li>
+      <li><a href="#gold"><span class="num">07</span> Gold efficiency</a></li>
+      <li><a href="#runes"><span class="num">08</span> Keystone duel</a></li>
+      <li><a href="#conclusions"><span class="num">09</span> Conclusions</a></li>
+    </ol>
+  </div>
+</nav>
+
+<!-- ============ 01 COMBO ============ -->
+<section id="combo">
+<div class="wrap">
+  <div class="sec-label">01 — The unit of analysis</div>
+  <h2>A fixed six-instance rotation</h2>
+  <p class="lead">Every result in this document rests on one assumption: the combo is a <em>fixed sequence</em>, not a sustained DPS loop. Quinn fires six damage instances inside a single ~3-second window, and both abilities cancel her auto-attack timer so no swing is wasted.</p>
+  <p>The sequence — <code>Q-blind → AA(Harrier) → AA → AA → E → AA(Harrier)</code> — produces four basic attacks, two ability hits, and two Harrier (Vulnerable) procs. Because <code>Vault</code> resets the attack timer and <code>Blinding Assault</code> animation-cancels, the four autos genuinely land in-window. This fixed-count structure is what makes a closed-form solution possible — and it is also why <strong>attack speed behaves discontinuously</strong>, as we'll see.</p>
+
+  <div class="metrics">
+    <div class="metric"><div class="k">Damage instances</div><div class="v gold">6</div><div class="n">4 autos · Q · E</div></div>
+    <div class="metric"><div class="k">Harrier procs</div><div class="v teal">2</div><div class="n">mark-limited, not AS-limited</div></div>
+    <div class="metric"><div class="k">Ability casts</div><div class="v">1 + 1</div><div class="n">Q (10.5s CD) · E (8–12s CD)</div></div>
+    <div class="metric"><div class="k">Window</div><div class="v coral">3.0s</div><div class="n">one rotation, one target</div></div>
+  </div>
+
+  <div class="callout">
+    <span class="tag">Modeling premise</span>
+    <p>Ability cooldowns (Q ≈ 10.5s, E 8–12s) far exceed the 3s window, so each fires exactly once. They are <em>fixed</em> contributions. Only the auto-attack count responds to attack speed — this single fact drives the entire optimization.</p>
+  </div>
+</div>
+</section>
+
+<!-- ============ 02 VARIABLES ============ -->
+<section id="variables">
+<div class="wrap">
+  <div class="sec-label">02 — Notation</div>
+  <h2>The decision variables</h2>
+  <p>We separate <em>champion state</em> (level, items) from <em>target state</em> (armor and our penetration against it). All quantities below feed the master equation in §03.</p>
+
+  <table>
+    <thead><tr><th>Symbol</th><th>Meaning</th><th>Definition / source</th></tr></thead>
+    <tbody>
+      <tr><td>L</td><td>Champion level</td><td>1–18</td></tr>
+      <tr><td>BaseAD(L)</td><td>Base attack damage</td><td>59 + 3.702·(L−1)</td></tr>
+      <tr><td>A</td><td>Bonus AD (items)</td><td>Doran's = 10; Long Sword = 10 @ 35g</td></tr>
+      <tr><td>H(L)</td><td>Harrier proc damage</td><td>16 + 6.880·(L−1) — <em>on-hit, never crits</em></td></tr>
+      <tr><td>s</td><td>Bonus attack speed</td><td>fractional; Dagger = 10% @ 25g</td></tr>
+      <tr><td>N(s)</td><td>Autos in 3s</td><td>⌊3 · 0.668 · (1+s)⌋ + 1</td></tr>
+      <tr><td>c</td><td>Crit chance</td><td>0–1; Cloak = 15% @ 40g/%≈40</td></tr>
+      <tr><td>g</td><td>Bonus crit damage</td><td>base crit = +100% (wiki: 200% total)</td></tr>
+      <tr><td>M(c,g)</td><td>Expected crit multiplier</td><td>1 + c·(1.00 + g)</td></tr>
+      <tr><td>R</td><td>Target base armor</td><td>—</td></tr>
+      <tr><td>ρ</td><td>% armor reduction</td><td>applied 1st (Quinn E, Black Cleaver)</td></tr>
+      <tr><td>π</td><td>% armor penetration</td><td>applied 3rd (Last Whisper line)</td></tr>
+      <tr><td>Λ</td><td>Lethality (flat pen)</td><td>applied last; Serrated Dirk = 10 @ 30g</td></tr>
+      <tr><td>R<sub>eff</sub></td><td>Effective armor</td><td>max(0, R(1−ρ)(1−π) − Λ)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warn">
+    <span class="tag">Critical asymmetry</span>
+    <p>Three components <strong>never crit</strong>: the Harrier proc <code>H(L)</code> (on-hit damage), <code>Q</code>, and <code>E</code> (abilities). Crit multiplies <em>only</em> the auto-attack AD block. On a combo that is ~60% non-critable early, this caps crit's leverage — the central finding of §05.</p>
+  </div>
+</div>
+</section>
+
+<!-- ============ 03 MASTER EQUATION ============ -->
+<section id="master">
+<div class="wrap">
+  <div class="sec-label">03 — Closed form</div>
+  <h2>The master equation</h2>
+  <p class="lead">Because every component of Quinn's combo is physical, a single mitigation factor governs the entire burst. This is unusual — and it makes the whole system collapse into one clean expression.</p>
+
+  <div class="eq">
+    <div class="eq-label">Post-mitigation burst damage</div>
+    $$ D = \Big[\, \underbrace{N(s)\big[\,BaseAD(L)+A\,\big]\,M(c,g)}_{\text{autos — critable}} \;+\; \underbrace{1.05\,A + 140}_{Q+E} \;+\; \underbrace{2\big[\,H(L)+0.40A\,\big]}_{\text{Harrier — on-hit}} \,\Big]\cdot \frac{100}{100+R_{\text{eff}}} $$
+  </div>
+
+  <p>The bracketed quantity is raw damage; the trailing factor is the wiki's armor mitigation. Three structural facts fall out immediately:</p>
+
+  <div class="callout insight">
+    <span class="tag">Insight 01 — Penetration is a global multiplier</span>
+    <p>Since all damage is physical, <code>100/(100+R_eff)</code> scales autos, abilities, and procs identically. On a mixed-damage champion you'd need two mitigation terms; Quinn needs one. This rewards <em>committing</em> to physical penetration rather than hedging.</p>
+  </div>
+
+  <div class="callout insight">
+    <span class="tag">Insight 02 — Crit only touches one term</span>
+    <p>The multiplier <code>M(c,g)</code> attaches to the auto block alone. Crit and attack speed therefore <em>compound</em> (more autos × bigger crits), while crit does nothing for the ability/proc majority of an early combo.</p>
+  </div>
+
+  <p>Collapsing the AD-dependent terms gives the form used for gold-efficiency work, where the coefficient on bonus AD is <code>1.85 + N(s)·M</code> — the 1.85 being Q (0.85) + E (0.20) + two Harrier procs (0.80):</p>
+  <div class="eq">
+    <div class="eq-label">AD-collapsed form (pre-mitigation)</div>
+    $$ D_{\text{raw}} = \big(140 + N\cdot BaseAD(L) + 2H(L)\big) \;+\; \big(1.85 + N\cdot M\big)\,A $$
+  </div>
+</div>
+</section>
+
+<!-- ============ 04 TIME / STAIRCASE ============ -->
+<section id="time">
+<div class="wrap">
+  <div class="sec-label">04 — Attack speed dynamics</div>
+  <h2>The staircase: why attack speed is lumpy</h2>
+  <p class="lead">In a fixed-window combo, attack speed adds <em>nothing</em> until it crosses a whole-auto threshold — then it jumps by one entire auto. The damage-vs-AS relationship is a step function, not a smooth curve.</p>
+  <p>Autos in the window are <code>N(s) = ⌊3 · 0.668 · (1+s)⌋ + 1</code>. At level-appropriate base attack speed (0.668), you land 3 autos and don't reach a 4th until total AS hits 1.0 — that is <strong>+50% bonus AS</strong> for a single extra swing. Between thresholds, every point of AS is wasted on burst.</p>
+
+  <div class="chart-card">
+    <div class="title">Burst damage as a function of bonus attack speed</div>
+    <div class="sub">L11 · +45 AD · the flat treads are dead zones</div>
+    <div class="legend"><span><span class="line-swatch" style="border-color:#d9a441"></span>Post-mitigation burst (R_eff = 60)</span></div>
+    <div class="chart-wrap" style="height:260px"><canvas id="staircase" role="img" aria-label="Step function showing burst damage jumps only at attack speed thresholds"></canvas></div>
+  </div>
+
+  <div class="callout warn">
+    <span class="tag">Insight 03 — AS is a breakpoint purchase</span>
+    <p>Attack speed is not a smooth stat for burst. It is worthless across each tread and valuable only at the riser. Buy it <em>only</em> when one item pushes <code>3·totalAS</code> across an integer. Quinn's <code>Heightened Senses</code> steroid (+28–80% AS) typically supplies the first breakpoint for free — meaning purchased AS double-dips poorly.</p>
+  </div>
+</div>
+</section>
+
+<!-- ============ 05 CRIT ============ -->
+<section id="crit">
+<div class="wrap">
+  <div class="sec-label">05 — Critical strike</div>
+  <h2>Crit is a win-more, scaling stat</h2>
+  <p class="lead">Crit multiplies only the auto block. Early, that block is a minority of the combo, so crit's leverage is weak. Late — with high base AD, more autos, and a crit-damage item — the auto block dominates and crit compounds.</p>
+
+  <div class="chart-card">
+    <div class="title">Share of combo that crit can actually multiply</div>
+    <div class="sub">critable autos vs. non-critable Q · E · Harrier, by level (+45 AD, 25% crit)</div>
+    <div class="legend">
+      <span><span class="swatch" style="background:#3fb6a0"></span>Critable autos</span>
+      <span><span class="swatch" style="background:#9a8ce0"></span>Q + E</span>
+      <span><span class="swatch" style="background:#e0673c"></span>Harrier procs</span>
+    </div>
+    <div class="chart-wrap" style="height:280px"><canvas id="critshare" role="img" aria-label="Stacked area showing the critable fraction of the combo growing with level"></canvas></div>
+  </div>
+
+  <p>Setting crit's marginal gold value equal to AD's yields the crossover condition:</p>
+  <div class="eq">
+    <div class="eq-label">Crit overtakes AD when</div>
+    $$ \frac{N\,(BaseAD(L)+A)\,(1+g)}{40} \;>\; \frac{1.85 + N}{35} $$
+  </div>
+  <p>At <strong>L3, no crit-damage item</strong>: AD wins ≈2.4× (0.139 vs 0.057 dmg/gold). At <strong>L16 with an IE-tier item</strong> (g = 0.40, N = 4, A = 60): crit pulls ahead (≈0.244 vs 0.167). The phase transition is real and itemization-gated.</p>
+
+  <div class="callout insight">
+    <span class="tag">Insight 04 — Crit and crit-damage are multiplicative</span>
+    <p>The cross-term <code>c·g</code> means crit chance and crit damage amplify each other, and both ride the auto block that attack speed enlarges. Crit is therefore the keystone of a <em>committed</em> auto build — and nearly worthless as a splash stat on a burst combo.</p>
+  </div>
+</div>
+</section>
+
+<!-- ============ 06 ARMOR / PEN ============ -->
+<section id="armor">
+<div class="wrap">
+  <div class="sec-label">06 — Mitigation</div>
+  <h2>The penetration stack &amp; effective armor</h2>
+  <p class="lead">League applies armor modifiers in a strict order, and that order — not raw magnitude — decides whether lethality or percent penetration is better against a given target.</p>
+
+  <div class="eq">
+    <div class="eq-label">Effective armor (penetration applied in order)</div>
+    $$ R_{\text{eff}} = \max\!\Big(0,\; \underbrace{R}_{\text{base}}\cdot\underbrace{(1-\rho)}_{\text{1. \% reduce}}\cdot\underbrace{(1-\pi)}_{\text{3. \% pen}} - \underbrace{\Lambda}_{\text{4. lethality}}\Big) $$
+  </div>
+
+  <p>Lethality subtracts <em>after</em> the percentages have already shrunk armor. The marginal value of each pen type therefore depends on where the target sits:</p>
+
+  <table>
+    <thead><tr><th>Stat</th><th>Moves R_eff by</th><th>Strong when</th></tr></thead>
+    <tbody>
+      <tr><td>Lethality Λ</td><td>−1 flat (last)</td><td>target armor is <strong>low</strong></td></tr>
+      <tr><td>% armor pen π</td><td>−R(1−ρ)·π</td><td>target armor is <strong>high</strong></td></tr>
+      <tr><td>% armor reduce ρ</td><td>−R·ρ(1−π)</td><td>high armor; helps whole team</td></tr>
+    </tbody>
+  </table>
+
+  <div class="chart-card">
+    <div class="title">Effective armor removed: lethality vs. % penetration</div>
+    <div class="sub">30 lethality vs. 40% pen, across target base armor (ρ = 14%)</div>
+    <div class="legend">
+      <span><span class="line-swatch" style="border-color:#4b94d8"></span>30 lethality</span>
+      <span><span class="line-swatch" style="border-color:#e0673c"></span>40% armor pen</span>
+    </div>
+    <div class="chart-wrap" style="height:260px"><canvas id="pencross" role="img" aria-label="Two lines crossing near 100 armor showing lethality better below, percent pen better above"></canvas></div>
+  </div>
+
+  <div class="callout insight">
+    <span class="tag">Insight 05 — The crossover sits near R_eff ≈ 100</span>
+    <p>At 100 armor, 1 point = 1% effective HP (per the wiki), so flat and percent behave comparably. Below it, flat lethality dominates (it can drive R_eff to literal zero on squishies); above it, percent pen removes far more absolute armor. Gold prices (lethality 30g vs %pen ~42g/pt) reinforce the same break.</p>
+  </div>
+</div>
+</section>
+
+<!-- ============ 07 GOLD EFFICIENCY ============ -->
+<section id="gold">
+<div class="wrap">
+  <div class="sec-label">07 — Optimization</div>
+  <h2>Marginal damage per gold</h2>
+  <p class="lead">The build question reduces to one comparison: which stat returns the most burst damage per gold spent, at the margin? Using the wiki's reference-item prices, every stat gets a price tag.</p>
+
+  <table>
+    <thead><tr><th>Stat</th><th>Gold / point</th><th>Marginal Δdamage / gold (L11, N=3)</th></tr></thead>
+    <tbody>
+      <tr><td>Attack damage</td><td>35</td><td><strong style="color:#d9a441">0.139</strong> — always on</td></tr>
+      <tr><td>Crit chance (early, g=0)</td><td>40 / %</td><td>0.057 — auto-block only</td></tr>
+      <tr><td>Attack speed</td><td>2.5 / %</td><td>0 between risers · ~0.61 at riser</td></tr>
+      <tr><td>Lethality</td><td>30</td><td>scales ∝ raw combo, peaks on squishies</td></tr>
+      <tr><td>% armor pen</td><td>~42 / %</td><td>scales ∝ raw combo, peaks on tanks</td></tr>
+    </tbody>
+  </table>
+
+  <div class="chart-card">
+    <div class="title">Interactive: marginal damage per gold</div>
+    <div class="sub">drag to see how the ranking flips with level, items, and target armor</div>
+    <div class="controls">
+      <div class="ctl-head">Champion state</div><div class="ctl-head">Target</div>
+      <div class="ctl"><label>Level</label><input type="range" id="g_lvl" min="1" max="18" value="11"><span class="out" id="g_lvlV">11</span></div>
+      <div class="ctl"><label>R_eff</label><input type="range" id="g_reff" min="0" max="200" value="60" step="10"><span class="out" id="g_reffV">60</span></div>
+      <div class="ctl"><label>Bonus AD</label><input type="range" id="g_ad" min="0" max="200" value="45" step="5"><span class="out" id="g_adV">45</span></div>
+      <div class="ctl"><label>Crit dmg (g)</label><input type="range" id="g_cd" min="0" max="100" value="0" step="5"><span class="out" id="g_cdV">0%</span></div>
+      <div class="ctl"><label>Bonus AS</label><input type="range" id="g_as" min="0" max="120" value="0" step="5"><span class="out" id="g_asV">0%</span></div>
+      <div class="ctl"><label>Crit chance</label><input type="range" id="g_cc" min="0" max="100" value="0" step="5"><span class="out" id="g_ccV">0%</span></div>
+    </div>
+    <div class="legend">
+      <span><span class="swatch" style="background:#d9a441"></span>AD</span>
+      <span><span class="swatch" style="background:#3fb6a0"></span>Crit chance</span>
+      <span><span class="swatch" style="background:#9a8ce0"></span>Lethality</span>
+      <span><span class="swatch" style="background:#e0673c"></span>% armor pen</span>
+    </div>
+    <div class="chart-wrap" style="height:240px"><canvas id="goldbar" role="img" aria-label="Bar chart of marginal damage per gold for each stat, updating with controls"></canvas></div>
+  </div>
+
+  <div class="callout">
+    <span class="tag">Optimal policy</span>
+    <p>Buy <strong>AD/lethality continuously</strong> — both deliver guaranteed value on every cast because Quinn's combo is ability- and on-hit-heavy. Treat <strong>attack speed as a lumpy breakpoint</strong> (only at risers, and her W steroid usually pays it). Pivot to <strong>crit only after</strong> an IE-tier crit-damage item makes the auto block large enough to justify it. Switch lethality→%pen as the enemy frontline's R_eff climbs past ~100.</p>
+  </div>
+</div>
+</section>
+
+<!-- ============ 08 RUNES ============ -->
+<section id="runes">
+<div class="wrap">
+  <div class="sec-label">08 — Keystone selection</div>
+  <h2>Electrocute vs. Press the Attack</h2>
+  <p class="lead">The two keystones interact with the combo in opposite ways. Electrocute is a flat one-time burst that ignores your scaling. Press the Attack is a smaller burst <em>plus</em> a multiplier on everything after its trigger.</p>
+
+  <div class="eq">
+    <div class="eq-label">Electrocute — flat additive (proc damage, no crit)</div>
+    $$ \Delta D_{\text{Elec}} = \big(E_0(L) + 0.10A\big)\cdot\frac{100}{100+R_{\text{eff}}}, \qquad E_0(L)=70+11.18(L-1) $$
+  </div>
+  <div class="eq">
+    <div class="eq-label">Press the Attack — burst + amp on post-trigger combo</div>
+    $$ \Delta D_{\text{PtA}} = \Big(P_0(L) + (\alpha-1)\cdot D_{\text{post-trigger}}\Big)\cdot\frac{100}{100+R_{\text{eff}}}, \quad P_0(L)=40+8.24(L-1),\ \alpha\in[1.08,1.12] $$
+  </div>
+
+  <div class="chart-card">
+    <div class="title">Added burst damage by level</div>
+    <div class="sub">L-sweep · +45 AD · 0% crit · R_eff = 60</div>
+    <div class="legend">
+      <span><span class="line-swatch" style="border-color:#d9a441"></span>Electrocute</span>
+      <span><span class="line-swatch" style="border-color:#e0673c;border-top-style:dashed"></span>Press the Attack</span>
+    </div>
+    <div class="chart-wrap" style="height:280px"><canvas id="runes" role="img" aria-label="Two lines comparing added damage from Electrocute and Press the Attack across levels"></canvas></div>
+  </div>
+
+  <div class="verdict">
+    <div class="vcard win">
+      <h4>For this build → winner</h4>
+      <div class="verdict-name">Electrocute</div>
+      <p style="font-size:16px;color:var(--ink2);margin-bottom:0">The combo is a one-rotation delete. Electrocute's flat burst lands fully and immediately; a target that dies in one combo never lives to benefit from PtA's lingering 6-second amp. The wiki itself frames Electrocute around exactly this 3-ability window.</p>
+    </div>
+    <div class="vcard">
+      <h4>When PtA wins instead</h4>
+      <div class="verdict-name">Press the Attack</div>
+      <p style="font-size:16px;color:var(--ink2);margin-bottom:0">Late-game crit/AD builds in <em>extended</em> fights, and repeated lane trades. PtA's amp grows with your combo size, compounds with crit (it multiplies the auto block too), and persists 6s for follow-up autos.</p>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <span class="tag">Insight 06 — Burst rewards flat, sustain rewards multiplicative</span>
+    <p>Electrocute adds a constant; PtA adds a percentage. A constant wins when your base combo is small or the fight is one rotation. A percentage wins when your combo is already large and the fight lasts. The "burst vs. sustain" axis <em>is</em> the "flat vs. multiplicative" axis.</p>
+  </div>
+</div>
+</section>
+
+<!-- ============ 09 CONCLUSIONS ============ -->
+<section id="conclusions">
+<div class="wrap">
+  <div class="sec-label">09 — Synthesis</div>
+  <h2>Conclusions</h2>
+  <p class="lead">Six insights, one through-line: Quinn's combo is structurally <em>ability- and on-hit-weighted</em>, which makes guaranteed flat stats beat conditional multiplicative ones until the auto block is deliberately built up.</p>
+
+  <table>
+    <thead><tr><th>#</th><th>Finding</th><th>Build consequence</th></tr></thead>
+    <tbody>
+      <tr><td>01</td><td>One physical mitigation factor governs the whole combo</td><td>Commit to physical pen; don't hedge</td></tr>
+      <tr><td>02</td><td>Crit multiplies only the auto block</td><td>Crit is late-game, not a splash stat</td></tr>
+      <tr><td>03</td><td>AS is a step function in a fixed window</td><td>Buy AS only at risers; let W steroid pay it</td></tr>
+      <tr><td>04</td><td>Crit × crit-damage compound on the auto block</td><td>IE first, then crit chance scales</td></tr>
+      <tr><td>05</td><td>Pen crossover at R_eff ≈ 100</td><td>Lethality vs squishies, %pen vs tanks</td></tr>
+      <tr><td>06</td><td>Flat burst beats % amp for one-shots</td><td>Electrocute for the burst build</td></tr>
+    </tbody>
+  </table>
+
+  <h3>The optimal burst build, derived</h3>
+  <p>AD/lethality core (guaranteed value every cast) → IE-tier crit-damage item to unlock the auto block → crit chance to scale → attack speed only to hit a clean breakpoint, largely supplied by Heightened Senses → Electrocute as keystone → lethality vs. % pen chosen per enemy frontline armor. Everything follows from the master equation in §03.</p>
+
+  <div class="callout">
+    <span class="tag">Model limitations</span>
+    <p>Three honest caveats. (1) Quinn's E armor-reduction lands mid-combo, so the first auto and Q technically hit pre-debuff armor — the single global mitigation factor slightly understates early hits. (2) The <code>+1</code> immediate-auto and perfect animation-cancel assumption is best-case; lost autos shift AS breakpoints later. (3) PtA's amped fraction was approximated at 60% post-trigger; exact Harrier timing moves the keystone lines closer. None of these overturn the directional conclusions.</p>
+  </div>
+</div>
+</section>
+
+<footer>
+  <div class="wrap">
+    QUINN BURST COMBAT MODEL · closed-form decomposition + marginal gold-efficiency optimization<br>
+    Stats &amp; formulas sourced from League of Legends Wiki (champion page, armor formula, reference items, rune pages).<br>
+    Analytical model — figures are theoretical and assume idealized animation-cancelling. Patch-version dependent.
+  </div>
+</footer>
+
+<script>
+(function(){
+  const GOLD='#d9a441', TEAL='#3fb6a0', CORAL='#e0673c', VIOLET='#9a8ce0', BLUE='#4b94d8';
+  const GRID='rgba(255,255,255,0.06)', TICK='#6b7480';
+  Chart.defaults.color = TICK;
+  Chart.defaults.font.family = "'JetBrains Mono', monospace";
+  Chart.defaults.font.size = 11;
+
+  // ---- model functions ----
+  const BASE_AS=0.668;
+  const baseAD=L=>59+3.702*(L-1);
+  const harrier=L=>16+6.880*(L-1);
+  const nauto=s=>Math.floor(3*BASE_AS*(1+s))+1;
+  const elec0=L=>70+11.176*(L-1);
+  const pta0=L=>40+8.235*(L-1);
+  const ptaAmp=L=>L>=9?1.12:1.08;
+
+  function comboRaw(L,A,s,c,cd){
+    const N=nauto(s), M=1+c*(1.00+cd), aa=baseAD(L)+A;
+    const autos=N*aa*M, Q=100+0.85*A, E=40+0.20*A, H=harrier(L)+0.40*A;
+    return {autos, abilities:Q+E, procs:2*H, total:autos+Q+E+2*H, N, M};
+  }
+  const mit=R=>100/(100+R);
+
+  const gridX={grid:{color:GRID},ticks:{color:TICK}};
+  const gridY={grid:{color:GRID},ticks:{color:TICK}};
+  const baseOpts=(xt,yt)=>({responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{backgroundColor:'#1c232c',borderColor:'#262e38',borderWidth:1,padding:10}},
+    scales:{x:{...gridX,title:{display:true,text:xt,color:TICK}},y:{...gridY,title:{display:true,text:yt,color:TICK}}}});
+
+  // ---- 04 staircase ----
+  (function(){
+    const L=11,A=45,R=60,pts=[];
+    for(let p=0;p<=120;p+=1){
+      const s=p/100, c=comboRaw(L,A,s,0,0);
+      pts.push({x:p,y:Math.round(c.total*mit(R))});
+    }
+    new Chart(document.getElementById('staircase'),{type:'line',
+      data:{datasets:[{data:pts,borderColor:GOLD,backgroundColor:GOLD,stepped:true,pointRadius:0,borderWidth:2}]},
+      options:baseOpts('Bonus attack speed (%)','Post-mit burst damage')});
+  })();
+
+  // ---- 05 crit share (stacked area by level) ----
+  (function(){
+    const A=45,labels=[],au=[],ab=[],pr=[];
+    for(let L=1;L<=18;L++){const c=comboRaw(L,A,0,0.25,0);labels.push(L);
+      au.push(Math.round(c.autos));ab.push(Math.round(c.abilities));pr.push(Math.round(c.procs));}
+    new Chart(document.getElementById('critshare'),{type:'line',
+      data:{labels,datasets:[
+        {label:'Autos',data:au,borderColor:TEAL,backgroundColor:'rgba(63,182,160,0.45)',fill:true,stack:'s',pointRadius:0,borderWidth:1.5},
+        {label:'Q+E',data:ab,borderColor:VIOLET,backgroundColor:'rgba(154,140,224,0.40)',fill:true,stack:'s',pointRadius:0,borderWidth:1.5},
+        {label:'Harrier',data:pr,borderColor:CORAL,backgroundColor:'rgba(224,103,60,0.40)',fill:true,stack:'s',pointRadius:0,borderWidth:1.5}
+      ]},
+      options:{...baseOpts('Champion level','Raw damage'),scales:{x:gridX,y:{...gridY,stacked:true,title:{display:true,text:'Raw damage',color:TICK}}}}});
+  })();
+
+  // ---- 06 pen crossover ----
+  (function(){
+    const rho=0.14,labels=[],leth=[],pen=[];
+    for(let R=0;R<=300;R+=10){
+      const afterRho=R*(1-rho);
+      const lethRemoved=afterRho-Math.max(0,afterRho-30);
+      const penRemoved=afterRho-afterRho*(1-0.40);
+      labels.push(R);leth.push(Math.round(lethRemoved*10)/10);pen.push(Math.round(penRemoved*10)/10);
+    }
+    new Chart(document.getElementById('pencross'),{type:'line',
+      data:{labels,datasets:[
+        {label:'30 lethality',data:leth,borderColor:BLUE,backgroundColor:BLUE,pointRadius:0,borderWidth:2,tension:.1},
+        {label:'40% pen',data:pen,borderColor:CORAL,backgroundColor:CORAL,pointRadius:0,borderWidth:2,tension:.1}
+      ]},
+      options:baseOpts('Target base armor','Effective armor removed')});
+  })();
+
+  // ---- 07 interactive gold bars ----
+  (function(){
+    let chart;
+    const ids=['lvl','reff','ad','cd','as','cc'];
+    function read(){const o={};ids.forEach(k=>o[k]=+document.getElementById('g_'+k).value);return o;}
+    function calc(){
+      const o=read();
+      document.getElementById('g_lvlV').textContent=o.lvl;
+      document.getElementById('g_reffV').textContent=o.reff;
+      document.getElementById('g_adV').textContent=o.ad;
+      document.getElementById('g_cdV').textContent=o.cd+'%';
+      document.getElementById('g_asV').textContent=o.as+'%';
+      document.getElementById('g_ccV').textContent=o.cc+'%';
+      const L=o.lvl,A=o.ad,s=o.as/100,c=o.cc/100,cd=o.cd/100,R=o.reff;
+      const m=mit(R);
+      const cr=comboRaw(L,A,s,c,cd);
+      const N=cr.N, M=cr.M;
+      // AD marginal: d D_post/dA = (1.85 + N*M) * mit ; per gold /35
+      const adPer=((1.85+N*M)*m)/35;
+      // Crit chance marginal (per 1%): dD/dc = N*(baseAD+A)*(1+cd) ; *mit ; /100 for per-% ; /40 gold
+      const ccPer=(N*(baseAD(L)+A)*(1+cd)*m/100)/40;
+      // Lethality marginal: reduces R_eff by 1 -> dD/dR_eff = -D_raw*100/(100+R)^2 ; magnitude per gold /30
+      const Draw=cr.total;
+      const dPerArmor=Draw*100/Math.pow(100+R,2);
+      const lethPer=dPerArmor/30;
+      // %pen marginal per 1%: removes R*(1-0.14)*0.01 armor (approx, rho fixed 0.14) ; /42 gold per %
+      const penArmorPer1=R*(1-0.14)*0.01;
+      const penPerG=(dPerArmor*penArmorPer1)/42;
+      const data={labels:['AD','Crit %','Lethality','% Pen'],
+        datasets:[{data:[adPer,ccPer,lethPer,penPerG].map(v=>Math.round(v*1000)/1000),
+          backgroundColor:[GOLD,TEAL,VIOLET,CORAL],borderWidth:0}]};
+      if(chart){chart.data=data;chart.update('none');}
+      else chart=new Chart(document.getElementById('goldbar'),{type:'bar',data,
+        options:{...baseOpts('','Δ damage per gold'),plugins:{legend:{display:false},
+          tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(3)+' dmg/gold'}}}}});
+    }
+    ids.forEach(k=>document.getElementById('g_'+k).addEventListener('input',calc));
+    calc();
+  })();
+
+  // ---- 08 runes ----
+  (function(){
+    const A=45,R=60,c=0,cd=0,labels=[],eD=[],pD=[];
+    for(let L=1;L<=18;L++){
+      const cr=comboRaw(L,A,0,c,cd), m=mit(R);
+      const elec=(elec0(L)+0.10*A)*m;
+      const postFrac=0.60, alpha=ptaAmp(L);
+      const pta=(pta0(L)+cr.total*postFrac*(alpha-1))*m;
+      labels.push(L);eD.push(Math.round(elec));pD.push(Math.round(pta));
+    }
+    new Chart(document.getElementById('runes'),{type:'line',
+      data:{labels,datasets:[
+        {label:'Electrocute',data:eD,borderColor:GOLD,backgroundColor:GOLD,pointRadius:0,borderWidth:2,tension:.1},
+        {label:'Press the Attack',data:pD,borderColor:CORAL,backgroundColor:CORAL,pointRadius:0,borderWidth:2,borderDash:[6,4],tension:.1}
+      ]},
+      options:baseOpts('Champion level','Added post-mit damage')});
+  })();
+
+})();
+</script>
+</body>
+</html>
